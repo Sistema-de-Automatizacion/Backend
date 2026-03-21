@@ -1,0 +1,39 @@
+name: Deploy API to Azure App Service
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build with Maven
+        run: ./mvnw clean package -DskipTests
+
+      - name: Verify JAR
+        run: ls -lh target/*.jar
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_APP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: target/*.jar
+
+      - name: Smoke test endpoint
+        run: |
+          sleep 30
+          curl -f "https://${{ secrets.AZURE_APP_NAME }}.azurewebsites.net/contracts/next-to-pay"
