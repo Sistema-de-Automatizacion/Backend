@@ -39,7 +39,7 @@ public class NotificationService implements INotificationService {
                 contract.getId(),
                 contract.getNameClient(),
                 contract.getPhoneNumber(),
-                "Recuerda que tu pago es el d\u00EDa " + contract.getPayDay() + " por un valor de $" + (decimalFormat.format(contract.getPayment() * 1000)),
+                "Recuerda que tu pago es el día " + contract.getPayDay() + " por un valor de $" + (decimalFormat.format( contract.getPayment() * 1000)),
                 dateNow.format(formatter)
             ))
             .toList();
