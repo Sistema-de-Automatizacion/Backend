@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.automatization.comunications.model.ContractAndPayoutDto;
 import com.automatization.comunications.model.ContractDto;
 import com.automatization.comunications.model.NotificationDto;
 import com.automatization.comunications.service.INotificationService;
@@ -50,9 +51,9 @@ public class NotificationController {
     @GetMapping("contracts/next-to-pay")
     @Operation(summary = "Find contracts next to pay", description = 
             "Obtiene una lista de contratos que están próximos a pagar con su respectivo mensaje de cobro")
-    public ResponseEntity<List<ContractDto>> findContractsNextToPay() {
+    public ResponseEntity<List<ContractAndPayoutDto>> findContractsNextToPay() {
         try {
-            List<ContractDto> contracts = notificationService.findContractNextTopay();
+            List<ContractAndPayoutDto> contracts = notificationService.findContractNextTopay();
             return ResponseEntity.ok(contracts);
         } catch (Exception e) {
             log.error("Error al obtener los contratos próximos a pagar", e);
