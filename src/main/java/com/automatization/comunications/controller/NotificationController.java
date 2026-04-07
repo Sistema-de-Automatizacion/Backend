@@ -2,6 +2,8 @@ package com.automatization.comunications.controller;
 
 import java.util.List;
 
+import com.automatization.comunications.model.entity.Notification;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -11,14 +13,17 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.automatization.comunications.model.ContractAndPayoutDto;
-import com.automatization.comunications.model.ContractDto;
-import com.automatization.comunications.model.NotificationDto;
+import com.automatization.comunications.model.dto.ContractAndPayoutDto;
+
+import com.automatization.comunications.model.dto.ErrorNotificationDto;
+import com.automatization.comunications.model.dto.NotificationDto;
 import com.automatization.comunications.service.INotificationService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 
 
@@ -48,6 +53,19 @@ public class NotificationController {
     
     }
 
+    @PostMapping("save/error-notification")
+    @Operation(summary = "Save an error notification", description = "Guarda una notificacion que no pudo ser enviada en la base de datos")
+    public ResponseEntity<ErrorNotificationDto> saveErrorNotification(@Valid @RequestBody ErrorNotificationDto errorNotificationDto) {
+        try{
+            notificationService.saveErrorNotification(errorNotificationDto);
+            return ResponseEntity.ok(errorNotificationDto);
+        }
+        catch(Exception e){
+            return ResponseEntity.status(HttpStatus.CREATED).body(errorNotificationDto);
+        }
+    
+    }
+
     @GetMapping("contracts/next-to-pay")
     @Operation(summary = "Find contracts next to pay", description = 
             "Obtiene una lista de contratos que están próximos a pagar con su respectivo mensaje de cobro")
@@ -61,6 +79,17 @@ public class NotificationController {
         }
     }
     
-    
+
+    @GetMapping("get/notifications")
+    @Operation(summary = "Find notifications", description = "Obtiene una lista de notificaciones por ID de contrato")
+    public ResponseEntity<List<Notification>> findNotifications(@RequestParam String id) {
+        try {
+            List<Notification> notifications = notificationService.findNotifications(id);
+            return ResponseEntity.ok(notifications);
+        } catch (Exception e) {
+            log.error("Error al obtener las notificaciones", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 
 }

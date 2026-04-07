@@ -1,6 +1,5 @@
-package com.automatization.comunications.model;
+package com.automatization.comunications.model.entity;
 
-import java.time.LocalDate;
 
 
 import jakarta.persistence.Entity;
