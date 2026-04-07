@@ -1,4 +1,4 @@
-package com.automatization.comunications.model;
+package com.automatization.comunications.model.dto;
 
 
 import jakarta.validation.constraints.NotBlank;
@@ -19,4 +19,6 @@ public record NotificationDto(
     
     @NotBlank(message = "El día de recordatorio no puede estar vacío")
     @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}", message = "El día de recordatorio debe tener el formato YYYY-MM-DD HH:mm:ss")
-    String dayRemember) {}
+    String dayRemember
+
+) {}

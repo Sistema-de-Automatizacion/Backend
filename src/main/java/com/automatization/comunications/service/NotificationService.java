@@ -11,10 +11,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.automatization.comunications.controller.NotificationController;
-import com.automatization.comunications.model.ContractAndPayoutDto;
-import com.automatization.comunications.model.Notification;
-import com.automatization.comunications.model.NotificationDto;
+import com.automatization.comunications.model.dto.ContractAndPayoutDto;
+import com.automatization.comunications.model.dto.ErrorNotificationDto;
+import com.automatization.comunications.model.dto.NotificationDto;
+import com.automatization.comunications.model.entity.ErrorNotification;
+import com.automatization.comunications.model.entity.Notification;
 import com.automatization.comunications.repository.IRepositoryContract;
+import com.automatization.comunications.repository.IRepositoryErrorNotification;
 import com.automatization.comunications.repository.IRepositoryNotification;
 
 import ch.qos.logback.classic.Logger;
@@ -26,10 +29,12 @@ public class NotificationService implements INotificationService {
 
     private IRepositoryNotification repositoryNotification;
     private IRepositoryContract repositoryContract;
+    private IRepositoryErrorNotification repositoryErrorNotification;
 
-    public NotificationService(IRepositoryNotification repositoryNotification, IRepositoryContract repositoryContract) {
+    public NotificationService(IRepositoryNotification repositoryNotification, IRepositoryContract repositoryContract, IRepositoryErrorNotification repositoryErrorNotification) {
         this.repositoryNotification = repositoryNotification;
         this.repositoryContract = repositoryContract;
+        this.repositoryErrorNotification = repositoryErrorNotification;
     }
 
     @Override
@@ -82,15 +87,20 @@ public class NotificationService implements INotificationService {
 
     @Override
     public List<Notification> findNotifications(String id) {
-        // TODO Auto-generated method stub
-        return null;
+        return repositoryNotification.findByNumContract(id);
     }
 
 
     @Override
-    public boolean deleteNotification(String id) {
-        // TODO Auto-generated method stub
-        return false;
+    public boolean deleteNotification(Long id) {
+        if (repositoryNotification.existsById(id)) {
+            repositoryNotification.deleteById(id);
+            log.info("Notificacion eliminada correctamente, id: " + id);
+            return true;
+        } else {
+            log.warn("No se encontró la notificación con id: " + id);
+            return false;
+        }
     }
 
     @Override
@@ -132,6 +142,20 @@ public class NotificationService implements INotificationService {
 
     private boolean isJustified(String stateWeek) {
         return stateWeek != null && "JUSTIFICADO".equalsIgnoreCase(stateWeek.trim());
+    }
+
+    @Override
+    public void saveErrorNotification(ErrorNotificationDto errorNotificationDto) {
+        ErrorNotification errorNotification = new ErrorNotification(
+            null,
+            errorNotificationDto.numContract(),
+            errorNotificationDto.nameClient(),
+            errorNotificationDto.phoneNumber(),
+            errorNotificationDto.dayRemember(),
+            errorNotificationDto.errorMessage()
+        );
+        repositoryErrorNotification.save(errorNotification);
+        log.info("Notificacion de error guardada correctamente: " + errorNotification);
     }
 
 }

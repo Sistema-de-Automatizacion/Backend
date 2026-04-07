@@ -1,4 +1,4 @@
-package com.automatization.comunications.model;
+package com.automatization.comunications.model.dto;
 
 
 public record ContractDto(

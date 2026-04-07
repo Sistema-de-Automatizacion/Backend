@@ -1,4 +1,4 @@
-package com.automatization.comunications.model;
+package com.automatization.comunications.model.entity;
 
 import org.hibernate.annotations.Immutable;
 
