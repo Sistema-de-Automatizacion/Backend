@@ -39,3 +39,6 @@ target/
 *.jar
 *.war
 *.ear
+# Environment variables
+.env
+.env.local
