@@ -22,12 +22,16 @@ import com.automatization.comunications.service.INotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestParam;
 
 
 
 
 @RestController
+@Validated
 @Tag(name = "NotificationController", description = "Controlador para gestionar las notificaciones de pago de los contratos")
 public class NotificationController {
 
@@ -82,7 +86,11 @@ public class NotificationController {
 
     @GetMapping("get/notifications")
     @Operation(summary = "Find notifications", description = "Obtiene una lista de notificaciones por ID de contrato")
-    public ResponseEntity<List<Notification>> findNotifications(@RequestParam String id) {
+    public ResponseEntity<List<Notification>> findNotifications(
+            @RequestParam
+            @NotBlank(message = "El ID del contrato no puede estar vacío")
+            @Pattern(regexp = "\\d+", message = "El ID del contrato debe contener solo dígitos")
+            String id) {
         try {
             List<Notification> notifications = notificationService.findNotifications(id);
             return ResponseEntity.ok(notifications);
