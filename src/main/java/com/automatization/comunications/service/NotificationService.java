@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.automatization.comunications.controller.NotificationController;
@@ -88,6 +90,16 @@ public class NotificationService implements INotificationService {
     @Override
     public List<Notification> findNotifications(String id) {
         return repositoryNotification.findByNumContract(id);
+    }
+
+    @Override
+    public Page<Notification> findAllNotifications(Pageable pageable) {
+        return repositoryNotification.findAll(pageable);
+    }
+
+    @Override
+    public Page<ErrorNotification> findAllErrorNotifications(Pageable pageable) {
+        return repositoryErrorNotification.findAll(pageable);
     }
 
 
