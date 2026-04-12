@@ -11,8 +11,10 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import jakarta.validation.ConstraintViolationException;
 
@@ -34,6 +36,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<Map<String, Object>> handleConstraint(ConstraintViolationException ex) {
         return build(HttpStatus.BAD_REQUEST, "Constraint violation", ex.getMessage());
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingParam(MissingServletRequestParameterException ex) {
+        String detail = "Missing required parameter '" + ex.getParameterName() + "' of type " + ex.getParameterType();
+        return build(HttpStatus.BAD_REQUEST, "Missing request parameter", detail);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String detail = "Parameter '" + ex.getName() + "' has invalid value '" + ex.getValue() + "'";
+        return build(HttpStatus.BAD_REQUEST, "Invalid parameter type", detail);
     }
 
     @ExceptionHandler(DataAccessException.class)
