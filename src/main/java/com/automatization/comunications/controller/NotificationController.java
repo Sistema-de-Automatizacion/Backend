@@ -68,6 +68,13 @@ public class NotificationController {
         return ResponseEntity.ok(notificationService.findContractNextTopay());
     }
 
+    @GetMapping("contracts/paid-today")
+    @Operation(summary = "Find clients who paid today", description =
+            "Obtiene una lista de clientes que realizaron un pago el día de hoy con su respectivo mensaje de confirmación")
+    public ResponseEntity<List<ContractAndPayoutDto>> findClientsPaidToday() {
+        return ResponseEntity.ok(notificationService.findClientsPaidToday());
+    }
+
 
     @GetMapping("get/notifications")
     @Operation(summary = "Find notifications", description = "Obtiene una lista de notificaciones por ID de contrato")
