@@ -13,8 +13,29 @@ Servicio REST para la automatización de notificaciones de pago y contratos del 
 ## Requisitos
 
 - JDK 21
-- Maven 3.9+
-- MySQL accesible (con las vistas `vw_sv_all_motos_semanal` y `vw_gd_recaudo_bruto`)
+- Maven 3.9+ (o usar `./mvnw` que ya viene con el proyecto)
+- Acceso a la BD espejo de producción (pedir credenciales a Juan). Las queries esperan el schema `db_packgps` con las vistas `vw_sv_all_motos_semanal` y `vw_gd_recaudo_bruto`.
+
+## Setup local (onboarding)
+
+Si recién clonaste el repo y querés levantar todo en tu máquina:
+
+```bash
+git clone https://github.com/Sistema-de-Automatizacion/Backend.git
+cd Backend
+cp .env.example .env
+# abrir .env y reemplazar los CHANGE_ME con los valores reales (pedirlos a Juan)
+./mvnw spring-boot:run
+```
+
+Verificación rápida:
+
+```bash
+curl http://localhost:8080/actuator/health      # debe responder {"status":"UP"}
+curl -H "X-API-Key: <la-key-del-.env>" http://localhost:8080/contracts/next-to-pay
+```
+
+> 📌 La BD contra la que se conecta localmente es la **espejo** de producción (no la fuente original), por eso es seguro ejecutar SELECT sin miedo a afectar datos reales. Las credenciales no se comitean al repo (el `.env` está en `.gitignore`).
 
 ## Configuración
 
