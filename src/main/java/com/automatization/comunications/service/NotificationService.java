@@ -1,6 +1,7 @@
 package com.automatization.comunications.service;
 
-import java.text.DecimalFormat;
+import java.sql.Date;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -29,6 +30,41 @@ public class NotificationService implements INotificationService {
 
     private static final Logger log = (Logger) LoggerFactory.getLogger(NotificationController.class);
 
+    private static final ZoneId BOGOTA_ZONE = ZoneId.of("America/Bogota");
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter DUE_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final String SUPPORT_LINE = "Para soporte: +57 304 4558351";
+
+    private static final String MORA_TEMPLATE = """
+            Cuota vencida
+            Hola %s, te informamos el estado actual de tu contrato de arrendamiento de la motocicleta con placa %s:
+
+            📌 Deuda acumulada a la fecha: $%d COP
+            📌 Cuota de esta semana: $%d COP
+            📌 Total a pagar: $%d COP
+
+            Te invitamos a ponerte al día con tus obligaciones para mantener vigente tu contrato y evitar intereses por mora adicionales.
+
+            Si ya realizaste el pago, por favor haz caso omiso a este mensaje.
+
+            Motos del Caribe Renting SAS
+            %s""";
+
+    private static final String REMINDER_TEMPLATE = """
+            Recordatorio de pago
+            Hola %s , te recordamos que tu cuota de arrendamiento de la motocicleta con placa %s por valor de $%d COP vence el %s.
+
+            Realiza tu pago a tiempo para evitar intereses por mora.
+
+            Gracias por confiar en Motos del Caribe Renting SAS.
+            %s""";
+
+    private static final String PAYMENT_RECEIVED_TEMPLATE = """
+            Hola %s, hemos recibido tu pago por valor de $%d COP correspondiente a la cuota de arrendamiento de la motocicleta con placa %s.
+
+            Gracias por tu pago puntual y por confiar en Motos del Caribe Renting SAS. 🏍️
+            %s""";
+
     private IRepositoryNotification repositoryNotification;
     private IRepositoryContract repositoryContract;
     private IRepositoryErrorNotification repositoryErrorNotification;
@@ -41,9 +77,7 @@ public class NotificationService implements INotificationService {
 
     @Override
     public List<ContractAndPayoutDto> findContractNextTopay() {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        LocalDateTime dateNow = LocalDateTime.now(ZoneId.of("America/Bogota"));
-        DecimalFormat decimalFormat = new DecimalFormat("#,###");
+        String date = LocalDateTime.now(BOGOTA_ZONE).format(TIMESTAMP_FORMATTER);
         List<ContractAndPayoutDto> contracts = repositoryContract.findAllPayoutAndContract().stream()
             .map(contract -> {
                 String id = toStringValue(contract[0]);
@@ -54,41 +88,23 @@ public class NotificationService implements INotificationService {
                 String stateWeek = toStringValue(contract[5]);
                 Double paymentPayout = toNullableDoubleValue(contract[6]);
                 paymentPayout = paymentPayout != null ? paymentPayout * 1000 : null;
-                String date = dateNow.format(formatter);
-                double accumulatedDebt = toDoubleValue(contract[7])*1000;
+                double accumulatedDebt = toDoubleValue(contract[7]) * 1000;
                 String licensePlate = toStringValue(contract[8]);
+                LocalDate dueDate = toLocalDate(contract[9]);
 
                 String payDay = nameDay(paymentDay);
                 double debt = accumulatedDebt - (paymentPayout != null ? paymentPayout : 0d);
-                if(debt < 0) {
+                if (debt < 0) {
                     debt = 0;
                 }
 
                 String message = null;
-                if(debt > 0){
-                message = "Cuota vencida\n" + //
-                                        "Hola " + nameClient + ", te informamos el estado actual de tu contrato de arrendamiento de la motocicleta con placa " + licensePlate + ":\n" + //
-                                        "\n" + //
-                                        "📌 Deuda acumulada a la fecha: $" + decimalFormat.format(debt) + " COP\n" + //
-                                        "📌 Cuota de esta semana: $" + decimalFormat.format(paymentContract * 1000) + " COP\n" + //
-                                        "📌 Total a pagar: $" + decimalFormat.format(accumulatedDebt) + " COP\n" + //
-                                        "\n" + //
-                                        "Te invitamos a ponerte al día con tus obligaciones para mantener vigente tu contrato y evitar intereses por mora adicionales.\n" + //
-                                        "\n" + //
-                                        "Si ya realizaste el pago, por favor haz caso omiso a este mensaje.\n" + //
-                                        "\n" + //
-                                        "Motos del Caribe Renting SAS\n" + //
-                                        "Para soporte: +57 304 4558351";
-
+                if (debt > 0) {
+                    message = buildMoraMessage(nameClient, licensePlate, debt, paymentContract * 1000, accumulatedDebt);
                 }
                 if (paymentPayout == null) {
-                    message = "Recordatorio de pago\n" + //
-                                                "Hola " + nameClient + ", te recordamos que tu cuota de arrendamiento de la motocicleta con placa " + licensePlate + " por valor de $" + decimalFormat.format(paymentContract * 1000) + " COP vence el " + paymentDay + ".\n" + //
-                                                "\n" + //
-                                                "Realiza tu pago a tiempo para evitar intereses por mora.\n" + //
-                                                "\n" + //
-                                                "Gracias por confiar en Motos del Caribe Renting SAS.";
-                } 
+                    message = buildReminderMessage(nameClient, licensePlate, paymentContract * 1000, dueDate);
+                }
                 return new ContractAndPayoutDto(
                     id,
                     nameClient,
@@ -108,6 +124,38 @@ public class NotificationService implements INotificationService {
                 || Double.compare(contract.paymentContract() - contract.paymentPayout(), 0d) != 0)
             .collect(Collectors.toList());
         return contracts;
+    }
+
+    @Override
+    public List<ContractAndPayoutDto> findClientsPaidToday() {
+        LocalDate today = LocalDate.now(BOGOTA_ZONE);
+        String date = LocalDateTime.now(BOGOTA_ZONE).format(TIMESTAMP_FORMATTER);
+        return repositoryContract.findClientsPaidByDate(today).stream()
+            .map(row -> {
+                String id = toStringValue(row[0]);
+                String nameClient = toStringValue(row[1]);
+                String phoneNumber = toStringValue(row[2]);
+                double paymentContract = toDoubleValue(row[3]);
+                double paymentPayout = toDoubleValue(row[4]) * 1000;
+                String licensePlate = toStringValue(row[5]);
+
+                String message = buildPaymentReceivedMessage(nameClient, paymentPayout, licensePlate);
+
+                return new ContractAndPayoutDto(
+                    id,
+                    nameClient,
+                    phoneNumber,
+                    paymentContract,
+                    null,
+                    paymentPayout,
+                    null,
+                    date,
+                    0d,
+                    0d,
+                    message
+                );
+            })
+            .collect(Collectors.toList());
     }
 
     @Override
@@ -151,6 +199,37 @@ public class NotificationService implements INotificationService {
         log.info("Notificacion guardada correctamente: " + notification);
     }
 
+    private String buildMoraMessage(String nameClient, String licensePlate, double debt, double weeklyFee, double totalDue) {
+        return MORA_TEMPLATE.formatted(
+            nameClient,
+            licensePlate,
+            (long) debt,
+            (long) weeklyFee,
+            (long) totalDue,
+            SUPPORT_LINE
+        );
+    }
+
+    private String buildReminderMessage(String nameClient, String licensePlate, double weeklyFee, LocalDate dueDate) {
+        String formattedDueDate = dueDate != null ? dueDate.format(DUE_DATE_FORMATTER) : "";
+        return REMINDER_TEMPLATE.formatted(
+            nameClient,
+            licensePlate,
+            (long) weeklyFee,
+            formattedDueDate,
+            SUPPORT_LINE
+        );
+    }
+
+    private String buildPaymentReceivedMessage(String nameClient, double paymentAmount, String licensePlate) {
+        return PAYMENT_RECEIVED_TEMPLATE.formatted(
+            nameClient,
+            (long) paymentAmount,
+            licensePlate,
+            SUPPORT_LINE
+        );
+    }
+
     private String toStringValue(Object value) {
         return value != null ? value.toString() : null;
     }
@@ -173,6 +252,25 @@ public class NotificationService implements INotificationService {
             return number.doubleValue();
         }
         return Double.parseDouble(value.toString());
+    }
+
+    private LocalDate toLocalDate(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Date sqlDate) {
+            return sqlDate.toLocalDate();
+        }
+        if (value instanceof java.util.Date utilDate) {
+            return utilDate.toInstant().atZone(BOGOTA_ZONE).toLocalDate();
+        }
+        if (value instanceof LocalDate localDate) {
+            return localDate;
+        }
+        if (value instanceof LocalDateTime localDateTime) {
+            return localDateTime.toLocalDate();
+        }
+        return LocalDate.parse(value.toString());
     }
 
     private boolean isJustified(String stateWeek) {
