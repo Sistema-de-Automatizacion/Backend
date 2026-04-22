@@ -1,10 +1,12 @@
 package com.automatization.comunications.service;
 
 import java.sql.Date;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -78,7 +80,7 @@ public class NotificationService implements INotificationService {
     @Override
     public List<ContractAndPayoutDto> findContractNextTopay() {
         String date = LocalDateTime.now(BOGOTA_ZONE).format(TIMESTAMP_FORMATTER);
-        List<ContractAndPayoutDto> contracts = repositoryContract.findAllPayoutAndContract().stream()
+        return repositoryContract.findAllPayoutAndContract().stream()
             .map(contract -> {
                 String id = toStringValue(contract[0]);
                 String nameClient = toStringValue(contract[1]);
@@ -86,22 +88,20 @@ public class NotificationService implements INotificationService {
                 String paymentDay = toStringValue(contract[3]);
                 double paymentContract = toDoubleValue(contract[4]) * 1000;
                 String stateWeek = toStringValue(contract[5]);
-                Double paymentPayout = toNullableDoubleValue(contract[6]);
-                paymentPayout = paymentPayout != null ? paymentPayout * 1000 : null;
-                double accumulatedDebt = toDoubleValue(contract[7]) * 1000;
-                String licensePlate = toStringValue(contract[8]);
-                LocalDate dueDate = toLocalDate(contract[9]);
+                double totalToPay = toDoubleValue(contract[6]) * 1000;
+                String licensePlate = toStringValue(contract[7]);
+                LocalDate dueDate = computeClientDueDate(paymentDay);
 
                 String payDay = nameDay(paymentDay);
-                double debt = accumulatedDebt - (paymentPayout != null ? paymentPayout : 0d);
-                if (debt < 0) {
-                    debt = 0;
+                double carriedOverDebt = totalToPay - paymentContract;
+                if (carriedOverDebt < 0) {
+                    carriedOverDebt = 0;
                 }
 
                 String message = null;
-                if (debt > 0) {
-                    message = buildMoraMessage(nameClient, licensePlate, debt, paymentContract, accumulatedDebt);
-                } else if (paymentPayout == null) {
+                if (carriedOverDebt > 0) {
+                    message = buildMoraMessage(nameClient, licensePlate, carriedOverDebt, paymentContract, totalToPay);
+                } else if (totalToPay > 0) {
                     message = buildReminderMessage(nameClient, licensePlate, paymentContract, dueDate);
                 }
                 return new ContractAndPayoutDto(
@@ -110,19 +110,17 @@ public class NotificationService implements INotificationService {
                     phoneNumber,
                     paymentContract,
                     payDay,
-                    paymentPayout,
+                    null,
                     stateWeek,
                     date,
-                    accumulatedDebt,
-                    debt,
+                    totalToPay,
+                    carriedOverDebt,
                     message
                 );
             })
-            .filter(contract -> !isJustified(contract.StateWeek()))
-            .filter(contract -> contract.paymentPayout() == null
-                || Double.compare(contract.paymentContract(), contract.paymentPayout()) != 0)
+            .filter(contract -> contract.StateWeek() == null || contract.StateWeek().isBlank())
+            .filter(contract -> contract.accumulatedDebt() > 0)
             .collect(Collectors.toList());
-        return contracts;
     }
 
     @Override
@@ -288,6 +286,23 @@ public class NotificationService implements INotificationService {
         );
         repositoryErrorNotification.save(errorNotification);
         log.info("Notificacion de error guardada correctamente: " + errorNotification);
+    }
+
+    private LocalDate computeClientDueDate(String dayOfPay) {
+        LocalDate monday = LocalDate.now(BOGOTA_ZONE).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        if (dayOfPay == null) {
+            return monday;
+        }
+        return switch (dayOfPay.trim()) {
+            case "Lun" -> monday;
+            case "Mar" -> monday.plusDays(1);
+            case "Mier" -> monday.plusDays(2);
+            case "Jue" -> monday.plusDays(3);
+            case "Vie" -> monday.plusDays(4);
+            case "Sab" -> monday.plusDays(5);
+            case "Dom" -> monday.plusDays(6);
+            default -> monday;
+        };
     }
 
     private String nameDay(String dayRemember) {
