@@ -13,7 +13,7 @@ import com.automatization.comunications.model.entity.Notification;
 
 public interface INotificationService {
     public List<ContractAndPayoutDto> findContractNextTopay();
-    public List<ContractAndPayoutDto> findClientsPaidToday();
+    public List<ContractAndPayoutDto> findClientsPaidThisWeek();
     public List<Notification> findNotifications(String id);
     public Page<Notification> findAllNotifications(Pageable pageable);
     public Page<ErrorNotification> findAllErrorNotifications(Pageable pageable);

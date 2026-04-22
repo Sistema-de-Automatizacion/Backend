@@ -22,10 +22,18 @@ public interface IRepositoryContract extends JpaRepository<Contract, String> {
     public List<Object[]> findAllPayoutAndContract();
 
     @Query(value = "SELECT c.contrato, c.arrendador, c.TELULT, c.cuota, p.Recaudo, c.placa, p.FECHA"
-    + " FROM db_packgps.vw_sv_all_motos_semanal AS c "
-    + " INNER JOIN db_packgps.vw_gd_recaudo_bruto AS p ON c.contrato = p.CONTRATO"
-    + " WHERE DATE(p.FECHA) = :date"
+    + " FROM db_packgps.vw_gd_recaudo_bruto AS p"
+    + " INNER JOIN db_packgps.vw_sv_all_motos_semanal AS c ON c.contrato = p.CONTRATO"
+    + " INNER JOIN ("
+    + "   SELECT contrato, MAX(fecha_semanal) AS last_semana"
+    + "   FROM db_packgps.vw_sv_all_motos_semanal"
+    + "   WHERE fecha_semanal <= CURRENT_DATE"
+    + "   GROUP BY contrato"
+    + " ) latest ON c.contrato = latest.contrato AND c.fecha_semanal = latest.last_semana"
+    + " WHERE DATE(p.FECHA) BETWEEN :startDate AND :endDate"
     + "   AND p.Recaudo > 0"
-    + "   AND (p.empresa IS NULL OR p.empresa <> 'RENTAYA_D')", nativeQuery = true)
-    public List<Object[]> findClientsPaidByDate(@Param("date") LocalDate date);
+    + "   AND (p.empresa IS NULL OR p.empresa <> 'RENTAYA_D')"
+    + " ORDER BY p.FECHA DESC", nativeQuery = true)
+    public List<Object[]> findClientsPaidBetween(@Param("startDate") LocalDate startDate,
+                                                  @Param("endDate") LocalDate endDate);
 }
