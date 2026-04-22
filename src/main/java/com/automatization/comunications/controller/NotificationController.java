@@ -68,11 +68,12 @@ public class NotificationController {
         return ResponseEntity.ok(notificationService.findContractNextTopay());
     }
 
-    @GetMapping("contracts/paid-today")
-    @Operation(summary = "Find clients who paid today", description =
-            "Obtiene una lista de clientes que realizaron un pago el día de hoy con su respectivo mensaje de confirmación")
-    public ResponseEntity<List<ContractAndPayoutDto>> findClientsPaidToday() {
-        return ResponseEntity.ok(notificationService.findClientsPaidToday());
+    @GetMapping("contracts/paid-this-week")
+    @Operation(summary = "Find clients who paid this week", description =
+            "Obtiene los pagos de la semana en curso (lunes a domingo). Dado que los pagos ingresan a la BD con un día de retraso, "
+                    + "se van acumulando a lo largo de la semana: si hoy es miércoles, verás los pagos del lunes y martes.")
+    public ResponseEntity<List<ContractAndPayoutDto>> findClientsPaidThisWeek() {
+        return ResponseEntity.ok(notificationService.findClientsPaidThisWeek());
     }
 
 

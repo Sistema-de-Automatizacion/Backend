@@ -124,10 +124,12 @@ public class NotificationService implements INotificationService {
     }
 
     @Override
-    public List<ContractAndPayoutDto> findClientsPaidToday() {
+    public List<ContractAndPayoutDto> findClientsPaidThisWeek() {
         LocalDate today = LocalDate.now(BOGOTA_ZONE);
+        LocalDate monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate sunday = monday.plusDays(6);
         String date = LocalDateTime.now(BOGOTA_ZONE).format(TIMESTAMP_FORMATTER);
-        return repositoryContract.findClientsPaidByDate(today).stream()
+        return repositoryContract.findClientsPaidBetween(monday, sunday).stream()
             .map(row -> {
                 String id = toStringValue(row[0]);
                 String nameClient = toStringValue(row[1]);
@@ -135,6 +137,8 @@ public class NotificationService implements INotificationService {
                 double paymentContract = toDoubleValue(row[3]) * 1000;
                 double paymentPayout = toDoubleValue(row[4]) * 1000;
                 String licensePlate = toStringValue(row[5]);
+                LocalDate paymentDate = toLocalDate(row[6]);
+                String paymentDateLabel = paymentDate != null ? paymentDate.format(DUE_DATE_FORMATTER) : null;
 
                 String message = buildPaymentReceivedMessage(nameClient, paymentPayout, licensePlate);
 
@@ -143,7 +147,7 @@ public class NotificationService implements INotificationService {
                     nameClient,
                     phoneNumber,
                     paymentContract,
-                    null,
+                    paymentDateLabel,
                     paymentPayout,
                     null,
                     date,
