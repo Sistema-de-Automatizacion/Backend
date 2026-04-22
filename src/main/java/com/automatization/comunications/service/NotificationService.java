@@ -101,8 +101,7 @@ public class NotificationService implements INotificationService {
                 String message = null;
                 if (debt > 0) {
                     message = buildMoraMessage(nameClient, licensePlate, debt, paymentContract, accumulatedDebt);
-                }
-                if (paymentPayout == null) {
+                } else if (paymentPayout == null) {
                     message = buildReminderMessage(nameClient, licensePlate, paymentContract, dueDate);
                 }
                 return new ContractAndPayoutDto(
