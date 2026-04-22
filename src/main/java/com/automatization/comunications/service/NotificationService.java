@@ -84,7 +84,7 @@ public class NotificationService implements INotificationService {
                 String nameClient = toStringValue(contract[1]);
                 String phoneNumber = toStringValue(contract[2]);
                 String paymentDay = toStringValue(contract[3]);
-                double paymentContract = toDoubleValue(contract[4]);
+                double paymentContract = toDoubleValue(contract[4]) * 1000;
                 String stateWeek = toStringValue(contract[5]);
                 Double paymentPayout = toNullableDoubleValue(contract[6]);
                 paymentPayout = paymentPayout != null ? paymentPayout * 1000 : null;
@@ -100,10 +100,10 @@ public class NotificationService implements INotificationService {
 
                 String message = null;
                 if (debt > 0) {
-                    message = buildMoraMessage(nameClient, licensePlate, debt, paymentContract * 1000, accumulatedDebt);
+                    message = buildMoraMessage(nameClient, licensePlate, debt, paymentContract, accumulatedDebt);
                 }
                 if (paymentPayout == null) {
-                    message = buildReminderMessage(nameClient, licensePlate, paymentContract * 1000, dueDate);
+                    message = buildReminderMessage(nameClient, licensePlate, paymentContract, dueDate);
                 }
                 return new ContractAndPayoutDto(
                     id,
@@ -121,7 +121,7 @@ public class NotificationService implements INotificationService {
             })
             .filter(contract -> !isJustified(contract.StateWeek()))
             .filter(contract -> contract.paymentPayout() == null
-                || Double.compare(contract.paymentContract() - contract.paymentPayout(), 0d) != 0)
+                || Double.compare(contract.paymentContract(), contract.paymentPayout()) != 0)
             .collect(Collectors.toList());
         return contracts;
     }
@@ -135,7 +135,7 @@ public class NotificationService implements INotificationService {
                 String id = toStringValue(row[0]);
                 String nameClient = toStringValue(row[1]);
                 String phoneNumber = toStringValue(row[2]);
-                double paymentContract = toDoubleValue(row[3]);
+                double paymentContract = toDoubleValue(row[3]) * 1000;
                 double paymentPayout = toDoubleValue(row[4]) * 1000;
                 String licensePlate = toStringValue(row[5]);
 
