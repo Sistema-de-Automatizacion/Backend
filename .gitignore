@@ -39,6 +39,8 @@ target/
 *.jar
 *.war
 *.ear
-# Environment variables
+# Environment variables (incluye backups tipo .env.backup-*)
 .env
-.env.local
+.env.*
+# Plantilla (SÍ se commitea — sirve de referencia para nuevos colaboradores)
+!.env.example

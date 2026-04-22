@@ -13,8 +13,29 @@ Servicio REST para la automatización de notificaciones de pago y contratos del 
 ## Requisitos
 
 - JDK 21
-- Maven 3.9+
-- MySQL accesible (con las vistas `vw_sv_all_motos_semanal` y `vw_gd_recaudo_bruto`)
+- Maven 3.9+ (o usar `./mvnw` que ya viene con el proyecto)
+- Acceso a la BD espejo de producción (pedir credenciales a Juan). Las queries esperan el schema `db_packgps` con las vistas `vw_sv_all_motos_semanal` y `vw_gd_recaudo_bruto`.
+
+## Setup local (onboarding)
+
+Si recién clonaste el repo y querés levantar todo en tu máquina:
+
+```bash
+git clone https://github.com/Sistema-de-Automatizacion/Backend.git
+cd Backend
+cp .env.example .env
+# abrir .env y reemplazar los CHANGE_ME con los valores reales (pedirlos a Juan)
+./mvnw spring-boot:run
+```
+
+Verificación rápida:
+
+```bash
+curl http://localhost:8080/actuator/health      # debe responder {"status":"UP"}
+curl -H "X-API-Key: <la-key-del-.env>" http://localhost:8080/contracts/next-to-pay
+```
+
+> 📌 La BD contra la que se conecta localmente es la **espejo** de producción (no la fuente original), por eso es seguro ejecutar SELECT sin miedo a afectar datos reales. Las credenciales no se comitean al repo (el `.env` está en `.gitignore`).
 
 ## Configuración
 
@@ -61,7 +82,8 @@ Todos los endpoints requieren el header `X-API-Key: <token>` excepto los marcado
 | GET    | `/actuator/info`                 | ❌   | Metadata de la aplicación                                       |
 | POST   | `/save/notification`             | ✅   | Registra una notificación enviada                               |
 | POST   | `/save/error-notification`       | ✅   | Registra una notificación que no pudo enviarse                  |
-| GET    | `/contracts/next-to-pay`         | ✅   | Contratos próximos a pagar con mensaje de cobro ya formateado   |
+| GET    | `/contracts/next-to-pay`         | ✅   | Contratos con deuda pendiente (mora o recordatorio) + mensaje   |
+| GET    | `/contracts/paid-today`          | ✅   | Clientes con pago semanal registrado hoy + mensaje de confirmación |
 | GET    | `/get/notifications?id=`         | ✅   | Notificaciones por número de contrato                           |
 | GET    | `/notifications/all?page=&size=` | ✅   | Historial completo paginado de notificaciones enviadas          |
 | GET    | `/notifications/errors/all?page=&size=` | ✅ | Historial completo paginado de notificaciones fallidas    |
@@ -166,6 +188,32 @@ Esta sección documenta las mejoras aplicadas al proyecto en el ciclo de *quick 
 - **Después:** `ComunicationsApplicationTests` está marcado con `@Disabled` hasta que se escriban tests de unidad con Mockito que no necesiten datasource.
 - **Impacto:** el pipeline de deploy a Azure vuelve a pasar verde en cada push a `main`.
 
+### 11. Plantillas aprobadas por Meta + endpoint de pagos del día
+
+- **Antes:** los mensajes de cobro se armaban por concatenación de strings y solo cubrían dos plantillas (recordatorio / mora). No había forma de confirmar al cliente un pago recién registrado.
+- **Después:** los 3 mensajes (`notificacion_mora`, `recordatorio_cuota`, `pago_recibido`) están definidos como text blocks en constantes y se construyen con helpers dedicados (`buildMoraMessage`, `buildReminderMessage`, `buildPaymentReceivedMessage`), respetando exactamente las plantillas aprobadas por Meta para WhatsApp Business. Se agregó el endpoint `GET /contracts/paid-today` que lista los clientes con un pago registrado hoy.
+- **Impacto:** mensajes legibles, trazables y fácilmente auditables contra lo aprobado; el dashboard puede mostrar en una sección aparte los pagos del día.
+
+### 12. Unidades monetarias consistentes (todo en pesos en el DTO)
+
+- **Antes:** `paymentContract` viajaba en "miles" sin multiplicar, mientras que `paymentPayout` y `accumulatedDebt` se multiplicaban ×1000 antes de salir al DTO. El frontend volvía a multiplicar por 1000 en `renderContracts`, inflando los montos 1000× en la UI y rompiendo el filtro "pagó exactamente la cuota" (restaba miles contra pesos).
+- **Después:** todo campo monetario del `ContractAndPayoutDto` (`paymentContract`, `paymentPayout`, `accumulatedDebt`, `debt`) se almacena en pesos desde el service. Los helpers de mensaje reciben los valores en pesos sin re-multiplicar, y el frontend solo les aplica `Intl.NumberFormat("es-CO", {style:"currency"})`.
+- **Impacto:** los mensajes y la UI muestran las cifras correctas; los filtros y comparaciones operan sobre la misma unidad.
+
+### 13. Calificación de vistas con el schema `db_packgps`
+
+- **Antes:** las queries nativas y las anotaciones `@Table` referenciaban `vw_sv_all_motos_semanal` y `vw_gd_recaudo_bruto` sin schema, lo que funcionaba solo si la BD default del `DB_URL` era donde vivían las vistas.
+- **Después:** las vistas están calificadas como `db_packgps.vw_sv_all_motos_semanal` y `db_packgps.vw_gd_recaudo_bruto` en las queries de `IRepositoryContract` y en `@Table(name="...", schema="db_packgps")` de las entidades.
+- **Impacto:** el backend sigue resolviendo las vistas aunque el `DB_URL` apunte a otra base (por ejemplo, la BD espejo de producción donde la default no es `db_packgps`).
+
+### 14. Integración con la BD productiva: mensajes por caso real
+
+- **Antes:** la lógica asumía un JOIN con `vw_gd_recaudo_bruto` para cada contrato, replicaba la fila por cada pago histórico del cliente (un contrato con 5 pagos producía 5 filas duplicadas), y la fecha de vencimiento del mensaje de recordatorio tomaba `fecha_semanal` tal cual — que es un identificador de semana, no la fecha efectiva de pago del cliente. Adicionalmente `paymentPayout` sumaba pagos diarios (`empresa='RENTAYA_D'`) que el sistema no proyecta en `vw_sv_all_motos_semanal` porque son de cobro diario, no semanal.
+- **Después:** `findAllPayoutAndContract` trae **una sola fila por contrato**: la de la semana más reciente (`fecha_semanal <= CURRENT_DATE`) vía subquery con `MAX(fecha_semanal) GROUP BY contrato`. La deuda viene directo de `c.deuda_cli` (que ya es neto) y la mora arrastrada se calcula como `deuda_cli - cuota`. `findClientsPaidByDate` agrega `p.Recaudo > 0 AND (p.empresa IS NULL OR p.empresa <> 'RENTAYA_D')` para excluir pagos diarios y pagos cero. Y la fecha del mensaje de recordatorio se calcula dinámicamente en Java (`computeClientDueDate`): lunes de la semana actual + offset según `dia_canon` del cliente (`Mar→+1`, `Mier→+2`, `Jue→+3`, …).
+- **Decisión de mensaje:** si `deuda_cli > cuota` (hay mora arrastrada) → MORA; si `deuda_cli == cuota` → RECORDATORIO; si `deuda_cli == 0` → el contrato no aparece. Se usan `if`/`else if` para que mora tenga prioridad sobre recordatorio cuando ambos aplican.
+- **Filtro de contratos activos:** se descartan los que no tienen `estado_semana` vacío o nulo, eliminando `CANCELADO*`, `06-Alistamiento`, `40-Desistalación de GPS`, `60-taller por vender`, etc.
+- **Impacto:** pasa de 10.800+ filas duplicadas a 1.331 contratos únicos notificables; los montos y fechas reflejan la realidad del cliente; n8n puede consumir el endpoint sin lógica extra de deduplicación.
+
 ### Resumen de los cambios
 
 | Área                    | Antes                                 | Después                                             |
@@ -180,6 +228,14 @@ Esta sección documenta las mejoras aplicadas al proyecto en el ciclo de *quick 
 | Autenticación           | Endpoints 100% públicos              | `X-API-Key` filter con `app.api-key`                |
 | CI de deploy            | Fallaba en el test por falta de BD    | Test deshabilitado hasta tener suite real          |
 | Documentación           | Sin README                            | README con setup, endpoints, mejoras y seguridad    |
+| Mensajes de cobro       | Strings concatenados, 2 casos         | 3 text blocks aprobados por Meta + builders aislados |
+| Pagos del día           | No existía                            | `GET /contracts/paid-today` con mensaje de confirmación |
+| Unidades monetarias     | Miles y pesos mezclados en DTO        | Todo en pesos, frontend sin multiplicar             |
+| Schema de vistas        | Resolución implícita por `DB_URL`    | `db_packgps.vw_*` explícito en queries y `@Table`   |
+| Duplicados por contrato | 5-8 filas por cliente (JOIN con pagos)| Una fila por contrato (última semana vigente)      |
+| Fecha del recordatorio  | `c.fecha_semanal` (un lunes opaco)    | Calculada en Java según `dia_canon` del cliente     |
+| Filtro de contratos     | Solo `estado_semana=JUSTIFICADO`      | Solo `estado_semana` vacío/null (vigentes)         |
+| Filtro de pagos         | Cualquier recaudo                      | `Recaudo > 0` y `empresa <> 'RENTAYA_D'`            |
 
 ### Próximos pasos sugeridos
 
