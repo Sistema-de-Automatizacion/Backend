@@ -53,31 +53,54 @@ public class NotificationService implements INotificationService {
                 double paymentContract = toDoubleValue(contract[4]);
                 String stateWeek = toStringValue(contract[5]);
                 Double paymentPayout = toNullableDoubleValue(contract[6]);
-                double pendingBalance = paymentPayout == null ? paymentContract : paymentContract - paymentPayout;
+                paymentPayout = paymentPayout != null ? paymentPayout * 1000 : null;
                 String date = dateNow.format(formatter);
+                double accumulatedDebt = toDoubleValue(contract[7])*1000;
+                String licensePlate = toStringValue(contract[8]);
 
-                String message;
-                if (paymentPayout == null) {
-                    message = "Hola " + nameClient + ", recuerda que tienes un pago programado para el dia "
-                         + paymentDay + " por un valor de $" + decimalFormat.format(paymentContract*1000)
-                         +". Atentamente: Motos del Caribe Renting S.A.S.";
-                } else {
-                    message = "Hola " + nameClient + ", hemos recibido tu abono por valor de: $"
-                        + decimalFormat.format(paymentPayout*1000)
-                        + ". Tu saldo pendiente es de $" + decimalFormat.format(pendingBalance*1000)
-                        + ". Gracias por tu pago, atentamente: Motos del Caribe Renting S.A.S.";
+                String payDay = nameDay(paymentDay);
+                double debt = accumulatedDebt - (paymentPayout != null ? paymentPayout : 0d);
+                if(debt < 0) {
+                    debt = 0;
                 }
 
+                String message = null;
+                if(debt > 0){
+                message = "Cuota vencida\n" + //
+                                        "Hola " + nameClient + ", te informamos el estado actual de tu contrato de arrendamiento de la motocicleta con placa " + licensePlate + ":\n" + //
+                                        "\n" + //
+                                        "📌 Deuda acumulada a la fecha: $" + decimalFormat.format(debt) + " COP\n" + //
+                                        "📌 Cuota de esta semana: $" + decimalFormat.format(paymentContract * 1000) + " COP\n" + //
+                                        "📌 Total a pagar: $" + decimalFormat.format(accumulatedDebt) + " COP\n" + //
+                                        "\n" + //
+                                        "Te invitamos a ponerte al día con tus obligaciones para mantener vigente tu contrato y evitar intereses por mora adicionales.\n" + //
+                                        "\n" + //
+                                        "Si ya realizaste el pago, por favor haz caso omiso a este mensaje.\n" + //
+                                        "\n" + //
+                                        "Motos del Caribe Renting SAS\n" + //
+                                        "Para soporte: +57 304 4558351";
+
+                }
+                if (paymentPayout == null) {
+                    message = "Recordatorio de pago\n" + //
+                                                "Hola " + nameClient + ", te recordamos que tu cuota de arrendamiento de la motocicleta con placa " + licensePlate + " por valor de $" + decimalFormat.format(paymentContract * 1000) + " COP vence el " + paymentDay + ".\n" + //
+                                                "\n" + //
+                                                "Realiza tu pago a tiempo para evitar intereses por mora.\n" + //
+                                                "\n" + //
+                                                "Gracias por confiar en Motos del Caribe Renting SAS.";
+                } 
                 return new ContractAndPayoutDto(
                     id,
                     nameClient,
                     phoneNumber,
                     paymentContract,
-                    paymentDay,
+                    payDay,
                     paymentPayout,
                     stateWeek,
-                    message,
-                    date
+                    date,
+                    accumulatedDebt,
+                    debt,
+                    message
                 );
             })
             .filter(contract -> !isJustified(contract.StateWeek()))
@@ -168,6 +191,22 @@ public class NotificationService implements INotificationService {
         );
         repositoryErrorNotification.save(errorNotification);
         log.info("Notificacion de error guardada correctamente: " + errorNotification);
+    }
+
+    private String nameDay(String dayRemember) {
+            if ("Mar".equals(dayRemember)) {
+                return "Martes";
+            }
+            if ("Mier".equals(dayRemember)) {
+                return "Miércoles";
+            }
+            if ("Jue".equals(dayRemember)) {
+                return "Jueves";
+            }
+            if ("QUI".equals(dayRemember)) {
+                return "Quincenal";
+            }
+        return dayRemember;
     }
 
 }

@@ -58,5 +58,11 @@ public class Contract {
     @Column(name = "estado_semana")
     private String stateWeek;
 
+    @Column(name = "deuda_cli")
+    private double  accumulatedDebt;
+
+    @Column(name = "placa") 
+    private String licensePlate;
+
 
 }
