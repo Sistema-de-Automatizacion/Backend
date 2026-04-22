@@ -17,7 +17,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @Entity
 @Immutable
-@Table(name = "vw_gd_recaudo_bruto")
+@Table(name = "vw_gd_recaudo_bruto", schema = "db_packgps")
 public class Payout {
 
     @Column(name = "CONTRATO")

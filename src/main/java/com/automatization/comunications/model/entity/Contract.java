@@ -21,7 +21,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @Entity
 @Immutable
-@Table(name = "vw_sv_all_motos_semanal")
+@Table(name = "vw_sv_all_motos_semanal", schema = "db_packgps")
 public class Contract {
 
     @Id
