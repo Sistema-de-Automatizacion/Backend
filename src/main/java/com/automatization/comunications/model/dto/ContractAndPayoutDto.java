@@ -8,7 +8,10 @@ public record ContractAndPayoutDto(
         String paymentDay,
         Double paymentPayout,
         String StateWeek,
-        String message,
-        String date) {
+        String date,
+        double accumulatedDebt,
+        double debt, 
+        String message
+) {
 
 }
