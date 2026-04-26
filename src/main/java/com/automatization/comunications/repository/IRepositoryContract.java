@@ -11,7 +11,7 @@ import com.automatization.comunications.model.entity.Contract;
 
 public interface IRepositoryContract extends JpaRepository<Contract, String> {
 
-    @Query(value = "SELECT c.contrato, c.arrendador, c.TELULT, c.dia_canon, c.cuota, c.estado_semana, c.deuda_cli, c.placa, c.fecha_semanal"
+    @Query(value = "SELECT c.contrato, c.arrendador, c.TELULT, c.dia_canon, c.cuota, c.estado_semana, c.deuda_cli, c.placa, c.fecha_semanal, c.saldo"
     + " FROM db_packgps.vw_sv_all_motos_semanal AS c"
     + " INNER JOIN ("
     + "   SELECT contrato, MAX(fecha_semanal) AS last_semana"

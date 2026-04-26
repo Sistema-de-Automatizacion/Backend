@@ -90,10 +90,17 @@ public class NotificationService implements INotificationService {
                 String stateWeek = toStringValue(contract[5]);
                 double totalToPay = toDoubleValue(contract[6]) * 1000;
                 String licensePlate = toStringValue(contract[7]);
+                double saldo = toDoubleValue(contract[9]) * 1000;
                 LocalDate dueDate = computeClientDueDate(paymentDay);
 
                 String payDay = nameDay(paymentDay);
+
+                if(saldo<paymentContract){
+                    paymentContract = saldo;
+                }
+
                 double carriedOverDebt = totalToPay - paymentContract;
+
                 if (carriedOverDebt < 0) {
                     carriedOverDebt = 0;
                 }
